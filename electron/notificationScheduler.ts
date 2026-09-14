@@ -1,5 +1,6 @@
 import { Notification } from "electron";
 import { REMINDER_THRESHOLDS_MIN, type Task } from "../shared/types";
+import { getEffectiveDeadline } from "../shared/taskLogic";
 import { getTasks, setTasks } from "./store";
 
 const CHECK_INTERVAL_MS = 30_000;
@@ -22,29 +23,33 @@ function checkAndNotify(onChange: (tasks: Task[]) => void) {
   let changed = false;
 
   const updated = tasks.map((task) => {
-    if (task.done || !task.deadline) return task;
+    if (task.done) return task;
     if (task.snoozedUntil && new Date(task.snoozedUntil).getTime() > now) {
       return task;
     }
 
-    const deadlineMs = new Date(task.deadline).getTime();
-    const minutesLeft = (deadlineMs - now) / 60000;
-    if (minutesLeft <= 0) return task;
+    const effectiveDeadline = getEffectiveDeadline(task, new Date(now));
+    if (!effectiveDeadline) return task;
+
+    let working = task;
+    // A new deadline (edited by the user, or a recurring task's next weekly
+    // occurrence) means past reminders no longer apply — start fresh.
+    if (working.notifiedForDeadline !== effectiveDeadline) {
+      working = { ...working, notifiedForDeadline: effectiveDeadline, notifiedThresholds: [] };
+      changed = true;
+    }
+
+    const minutesLeft = (new Date(effectiveDeadline).getTime() - now) / 60000;
+    if (minutesLeft <= 0) return working;
 
     for (const threshold of REMINDER_THRESHOLDS_MIN) {
-      if (
-        minutesLeft <= threshold &&
-        !task.notifiedThresholds.includes(threshold)
-      ) {
-        fireNotification(task, threshold);
+      if (minutesLeft <= threshold && !working.notifiedThresholds.includes(threshold)) {
+        fireNotification(working, threshold);
         changed = true;
-        return {
-          ...task,
-          notifiedThresholds: [...task.notifiedThresholds, threshold],
-        };
+        return { ...working, notifiedThresholds: [...working.notifiedThresholds, threshold] };
       }
     }
-    return task;
+    return working;
   });
 
   if (changed) {
@@ -55,8 +60,9 @@ function checkAndNotify(onChange: (tasks: Task[]) => void) {
 
 function fireNotification(task: Task, threshold: number) {
   const remaining = formatRemaining(threshold);
-  const body = task.why
-    ? `باقي ${remaining} على "${task.title}".\n${task.why}`
+  const why = task.why?.trim();
+  const body = why
+    ? `باقي ${remaining} على "${task.title}".\n${why}`
     : `باقي ${remaining} على "${task.title}".`;
 
   const notification = new Notification({

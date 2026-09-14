@@ -1,6 +1,7 @@
 import Store from "electron-store";
 import type { AppState } from "../shared/types";
 import { DEFAULT_SETTINGS } from "../shared/types";
+import { migrateTask } from "../shared/migrate";
 
 const store = new Store<AppState>({
   name: "taskwidget-data",
@@ -11,7 +12,12 @@ const store = new Store<AppState>({
 });
 
 export function getTasks() {
-  return store.get("tasks");
+  const raw = store.get("tasks");
+  const migrated = raw.map(migrateTask);
+  if (JSON.stringify(migrated) !== JSON.stringify(raw)) {
+    store.set("tasks", migrated);
+  }
+  return migrated;
 }
 
 export function setTasks(tasks: AppState["tasks"]) {

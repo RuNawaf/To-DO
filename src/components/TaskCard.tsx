@@ -2,6 +2,9 @@ import { useTaskStore } from "../store/useTaskStore";
 import { urgencyOf, formatCountdown, type Urgency } from "../utils/countdown";
 import { CATEGORY_META, PRIORITY_META } from "../utils/category";
 import type { Task } from "../../shared/types";
+import { WEEKDAYS_AR } from "../../shared/types";
+import { getEffectiveDeadline, getProgress, isDoneForCurrentCycle } from "../../shared/taskLogic";
+import ProgressBar from "./ProgressBar";
 
 const URGENCY_COLOR: Record<Urgency, string> = {
   overdue: "#ef4444",
@@ -21,12 +24,34 @@ interface Props {
 
 export default function TaskCard({ task, now, compact, onOpen, onQuickNote }: Props) {
   const toggleDone = useTaskStore((s) => s.toggleDone);
+  const toggleAttended = useTaskStore((s) => s.toggleAttended);
+  const toggleDoneToday = useTaskStore((s) => s.toggleDoneToday);
   const snoozeTask = useTaskStore((s) => s.snoozeTask);
-  const urgency = urgencyOf(task.deadline, now);
+
+  const nowDate = new Date(now);
+  const effectiveDeadline = getEffectiveDeadline(task, nowDate);
+  const urgency = urgencyOf(effectiveDeadline, now);
   const category = CATEGORY_META[task.category];
   const priority = PRIORITY_META[task.priority];
-
+  const progress = getProgress(task);
   const isSnoozed = task.snoozedUntil && new Date(task.snoozedUntil).getTime() > now;
+
+  const badgeText = isSnoozed
+    ? "🔕 مؤجل"
+    : effectiveDeadline
+      ? formatCountdown(effectiveDeadline, now)
+      : progress
+        ? `${progress.percent}%`
+        : "بدون موعد";
+
+  const quickChecked =
+    task.kind === "event" ? task.attended : task.kind === "recurring" ? isDoneForCurrentCycle(task, nowDate) : task.done;
+
+  function handleQuickCheck() {
+    if (task.kind === "event") toggleAttended(task.id);
+    else if (task.kind === "recurring") toggleDoneToday(task.id);
+    else toggleDone(task.id);
+  }
 
   return (
     <div
@@ -42,7 +67,7 @@ export default function TaskCard({ task, now, compact, onOpen, onQuickNote }: Pr
           </span>
         </div>
         <span className="task-countdown" style={{ ["--urgency-color" as string]: URGENCY_COLOR[urgency] }}>
-          {isSnoozed ? "🔕 مؤجل" : formatCountdown(task.deadline, now)}
+          {badgeText}
         </span>
       </div>
 
@@ -50,22 +75,38 @@ export default function TaskCard({ task, now, compact, onOpen, onQuickNote }: Pr
         <>
           <div className="task-meta">
             <span className="chip">{task.category}</span>
-            {task.subtasks.length > 0 && (
+
+            {task.kind === "study" && task.companionLabel && (
+              <span className="chip">{task.companionLabel}</span>
+            )}
+            {task.kind === "recurring" && task.dayOfWeek !== null && (
               <span className="chip">
-                {task.subtasks.filter((s) => s.done).length}/{task.subtasks.length} خطوات
+                {WEEKDAYS_AR[task.dayOfWeek]} {task.time}
+              </span>
+            )}
+            {task.kind === "recurring" && task.recurring && <span className="chip">🔁 أسبوعي</span>}
+            {task.kind === "event" && task.location && <span className="chip">📍 {task.location}</span>}
+            {progress && (
+              <span className="chip">
+                {progress.done}/{progress.total}{" "}
+                {task.kind === "study" ? "أجزاء" : task.kind === "project" ? "مراحل" : "خطوات"}
               </span>
             )}
           </div>
+
+          {progress && <ProgressBar percent={progress.percent} />}
 
           {task.why && <div className="task-why">"{task.why}"</div>}
 
           <div className="task-quick-actions" onClick={(e) => e.stopPropagation()}>
             <button
               className="icon-btn"
-              title="إنهاء المهمة"
-              onClick={() => toggleDone(task.id)}
+              title={
+                task.kind === "event" ? "حضرت" : task.kind === "recurring" ? "تم اليوم" : "إنهاء المهمة"
+              }
+              onClick={handleQuickCheck}
             >
-              ✓
+              {quickChecked ? "☑" : "✓"}
             </button>
             <button className="icon-btn" title="فتح المهمة" onClick={() => onOpen(task.id)}>
               →

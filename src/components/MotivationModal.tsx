@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { Task } from "../../shared/types";
 import { formatCountdown } from "../utils/countdown";
+import { getEffectiveDeadline } from "../../shared/taskLogic";
 import { useNow } from "../hooks";
 
 interface Props {
@@ -44,7 +45,7 @@ export default function MotivationModal({ task, onClose }: Props) {
         <h2>مالي خلق 😩</h2>
 
         <div style={{ fontSize: 12, color: "var(--fg-muted)", marginBottom: 6 }}>
-          {task.title} · {formatCountdown(task.deadline, now)}
+          {task.title} · {formatCountdown(getEffectiveDeadline(task, new Date(now)), now)}
         </div>
 
         {task.why && (

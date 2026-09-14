@@ -24,6 +24,8 @@ const COMPACT_HEIGHT = 130;
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let boundsSaveTimer: NodeJS.Timeout | null = null;
+let lastExpandedBounds: { width: number; height: number } | null = null;
+let isCompactSize = false;
 
 function resolveIcon(file: string) {
   return nativeImage.createFromPath(path.join(__dirname, "..", "..", "build", file));
@@ -61,6 +63,8 @@ function createWindow() {
   const primary = screen.getPrimaryDisplay().workArea;
   const width = settings.windowBounds?.width ?? DEFAULT_WIDTH;
   const height = settings.windowBounds?.height ?? DEFAULT_HEIGHT;
+  isCompactSize = settings.compact;
+  if (!isCompactSize) lastExpandedBounds = { width, height };
   const x =
     settings.windowBounds?.x ??
     primary.x + primary.width - width - 24;
@@ -213,10 +217,17 @@ function registerIpcHandlers() {
 
   ipcMain.on(IPC.WINDOW_TOGGLE_COMPACT_SIZE, (_evt, compact: boolean) => {
     if (!mainWindow) return;
+    if (compact === isCompactSize) return; // already in the requested size (e.g. fired on mount)
+
     const bounds = mainWindow.getBounds();
-    const width = compact ? COMPACT_WIDTH : DEFAULT_WIDTH;
-    const height = compact ? COMPACT_HEIGHT : DEFAULT_HEIGHT;
-    mainWindow.setBounds({ x: bounds.x, y: bounds.y, width, height }, true);
+    if (compact) {
+      lastExpandedBounds = { width: bounds.width, height: bounds.height };
+      mainWindow.setBounds({ x: bounds.x, y: bounds.y, width: COMPACT_WIDTH, height: COMPACT_HEIGHT }, true);
+    } else {
+      const restored = lastExpandedBounds ?? { width: DEFAULT_WIDTH, height: DEFAULT_HEIGHT };
+      mainWindow.setBounds({ x: bounds.x, y: bounds.y, ...restored }, true);
+    }
+    isCompactSize = compact;
   });
 
   ipcMain.on(IPC.OPEN_EXTERNAL, (_evt, url: string) => {

@@ -1,6 +1,7 @@
 import { create } from "zustand";
-import type { NewTaskInput, Settings, Subtask, Task } from "../../shared/types";
+import type { ChecklistItem, NewTaskInput, Settings, Task } from "../../shared/types";
 import { DEFAULT_SETTINGS } from "../../shared/types";
+import { getEffectiveDeadline, withChecklist } from "../../shared/taskLogic";
 import { urgencyOf } from "../utils/countdown";
 
 function uid(): string {
@@ -14,11 +15,12 @@ interface TaskStoreState {
   activeTaskId: string | null;
   init: () => Promise<void>;
   addTask: (input: NewTaskInput) => void;
-  updateTask: (id: string, patch: Partial<Task>) => void;
+  editTask: (id: string, input: NewTaskInput) => void;
   deleteTask: (id: string) => void;
   toggleDone: (id: string) => void;
-  toggleSubtask: (taskId: string, subtaskId: string) => void;
-  addSubtask: (taskId: string, title: string) => void;
+  setChecklist: (taskId: string, items: ChecklistItem[]) => void;
+  toggleAttended: (taskId: string) => void;
+  toggleDoneToday: (taskId: string) => void;
   addNote: (taskId: string, note: string) => void;
   snoozeTask: (taskId: string, minutes: number) => void;
   updateSettings: (patch: Partial<Settings>) => void;
@@ -31,6 +33,10 @@ function persistTasks(tasks: Task[]) {
 
 function persistSettings(settings: Settings) {
   window.taskWidget?.setSettings(settings);
+}
+
+function touch(task: Task): Task {
+  return { ...task, updatedAt: new Date().toISOString() };
 }
 
 export const useTaskStore = create<TaskStoreState>((set, get) => ({
@@ -53,23 +59,34 @@ export const useTaskStore = create<TaskStoreState>((set, get) => ({
 
   addTask: (input) => {
     const now = new Date().toISOString();
-    const task: Task = {
+    const task = {
       ...input,
       id: uid(),
       createdAt: now,
       updatedAt: now,
       done: false,
       notifiedThresholds: [],
-    };
+      notifiedForDeadline: null,
+    } as Task;
     const tasks = [...get().tasks, task];
     set({ tasks });
     persistTasks(tasks);
   },
 
-  updateTask: (id, patch) => {
-    const tasks = get().tasks.map((t) =>
-      t.id === id ? { ...t, ...patch, updatedAt: new Date().toISOString() } : t
-    );
+  editTask: (id, input) => {
+    const tasks = get().tasks.map((t) => {
+      if (t.id !== id) return t;
+      const merged = {
+        ...input,
+        id: t.id,
+        createdAt: t.createdAt,
+        updatedAt: t.updatedAt,
+        done: t.done,
+        notifiedThresholds: [],
+        notifiedForDeadline: null,
+      } as Task;
+      return touch(merged);
+    });
     set({ tasks });
     persistTasks(tasks);
   },
@@ -81,31 +98,29 @@ export const useTaskStore = create<TaskStoreState>((set, get) => ({
   },
 
   toggleDone: (id) => {
+    const tasks = get().tasks.map((t) => (t.id === id ? touch({ ...t, done: !t.done }) : t));
+    set({ tasks });
+    persistTasks(tasks);
+  },
+
+  setChecklist: (taskId, items) => {
+    const tasks = get().tasks.map((t) => (t.id === taskId ? touch(withChecklist(t, items)) : t));
+    set({ tasks });
+    persistTasks(tasks);
+  },
+
+  toggleAttended: (taskId) => {
     const tasks = get().tasks.map((t) =>
-      t.id === id ? { ...t, done: !t.done, updatedAt: new Date().toISOString() } : t
+      t.id === taskId && t.kind === "event" ? touch({ ...t, attended: !t.attended }) : t
     );
     set({ tasks });
     persistTasks(tasks);
   },
 
-  toggleSubtask: (taskId, subtaskId) => {
+  toggleDoneToday: (taskId) => {
     const tasks = get().tasks.map((t) => {
-      if (t.id !== taskId) return t;
-      const subtasks: Subtask[] = t.subtasks.map((s) =>
-        s.id === subtaskId ? { ...s, done: !s.done } : s
-      );
-      return { ...t, subtasks, updatedAt: new Date().toISOString() };
-    });
-    set({ tasks });
-    persistTasks(tasks);
-  },
-
-  addSubtask: (taskId, title) => {
-    if (!title.trim()) return;
-    const tasks = get().tasks.map((t) => {
-      if (t.id !== taskId) return t;
-      const subtasks = [...t.subtasks, { id: uid(), title: title.trim(), done: false }];
-      return { ...t, subtasks, updatedAt: new Date().toISOString() };
+      if (t.id !== taskId || t.kind !== "recurring") return t;
+      return touch({ ...t, doneMarkedAt: t.doneMarkedAt ? null : new Date().toISOString() });
     });
     set({ tasks });
     persistTasks(tasks);
@@ -113,10 +128,9 @@ export const useTaskStore = create<TaskStoreState>((set, get) => ({
 
   addNote: (taskId, note) => {
     if (!note.trim()) return;
-    const tasks = get().tasks.map((t) => {
-      if (t.id !== taskId) return t;
-      return { ...t, notes: [...t.notes, note.trim()], updatedAt: new Date().toISOString() };
-    });
+    const tasks = get().tasks.map((t) =>
+      t.id === taskId ? touch({ ...t, notes: [...t.notes, note.trim()] }) : t
+    );
     set({ tasks });
     persistTasks(tasks);
   },
@@ -142,6 +156,7 @@ export const useTaskStore = create<TaskStoreState>((set, get) => ({
 
 export function sortedVisibleTasks(tasks: Task[], showDone: boolean): Task[] {
   const now = Date.now();
+  const nowDate = new Date(now);
   const filtered = showDone ? tasks : tasks.filter((t) => !t.done);
   const urgencyRank: Record<string, number> = {
     overdue: 0,
@@ -152,14 +167,16 @@ export function sortedVisibleTasks(tasks: Task[], showDone: boolean): Task[] {
   };
   return [...filtered].sort((a, b) => {
     if (a.done !== b.done) return a.done ? 1 : -1;
-    const ua = urgencyRank[urgencyOf(a.deadline, now)];
-    const ub = urgencyRank[urgencyOf(b.deadline, now)];
+    const deadlineA = getEffectiveDeadline(a, nowDate);
+    const deadlineB = getEffectiveDeadline(b, nowDate);
+    const ua = urgencyRank[urgencyOf(deadlineA, now)];
+    const ub = urgencyRank[urgencyOf(deadlineB, now)];
     if (ua !== ub) return ua - ub;
-    if (a.deadline && b.deadline) {
-      return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
+    if (deadlineA && deadlineB) {
+      return new Date(deadlineA).getTime() - new Date(deadlineB).getTime();
     }
-    if (a.deadline) return -1;
-    if (b.deadline) return 1;
+    if (deadlineA) return -1;
+    if (deadlineB) return 1;
     const priorityRank = { high: 0, medium: 1, low: 2 };
     return priorityRank[a.priority] - priorityRank[b.priority];
   });

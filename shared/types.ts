@@ -23,32 +23,126 @@ export const CATEGORIES: Category[] = [
 
 export type Priority = "high" | "medium" | "low";
 
-export interface Subtask {
+export interface ChecklistItem {
   id: string;
   title: string;
   done: boolean;
 }
 
-export interface Task {
+export const WEEKDAYS_AR = [
+  "الأحد",
+  "الاثنين",
+  "الثلاثاء",
+  "الأربعاء",
+  "الخميس",
+  "الجمعة",
+  "السبت",
+];
+
+/**
+ * Each category maps to one of these shapes. The shape decides which fields
+ * the add/edit form and the detail view show — categories are not just a
+ * label, they change what the task *is*.
+ */
+export type TaskKind =
+  | "study" // دراسة / اختبار — parts + progress, optional companion date
+  | "event" // ورشة / محاضرة — date/time + location + attended
+  | "recurring" // نادي — weekly day/time + "تم اليوم"
+  | "opportunity" // فرصة / تقديم — required deadline + checklist + why-apply
+  | "project" // مشروع — phases + progress, optional/required deadline
+  | "simple"; // شخصي (fallback) — title + optional deadline + notes
+
+export function kindForCategory(category: Category): TaskKind {
+  switch (category) {
+    case "دراسة":
+    case "اختبار":
+      return "study";
+    case "ورشة":
+    case "محاضرة":
+      return "event";
+    case "نادي":
+      return "recurring";
+    case "فرصة":
+    case "تقديم":
+      return "opportunity";
+    case "مشروع":
+      return "project";
+    case "شخصي":
+    default:
+      return "simple";
+  }
+}
+
+interface BaseTask {
   id: string;
   title: string;
   category: Category;
-  deadline: string | null; // ISO string
   priority: Priority;
-  why: string; // "ليش لازم أسويها؟"
+  why: string; // "ليش لازم أسويها؟" (opportunity: "ليش أبي أقدم؟")
   smallestStep: string; // used by the "مالي خلق" flow
-  subtasks: Subtask[];
   notes: string[];
   done: boolean;
   createdAt: string;
   updatedAt: string;
   snoozedUntil: string | null;
   notifiedThresholds: number[]; // minutes-before-deadline thresholds already fired
+  notifiedForDeadline: string | null; // the effective deadline notifiedThresholds was computed against
 }
 
-export type NewTaskInput = Omit<
+export interface StudyTask extends BaseTask {
+  kind: "study";
+  parts: ChecklistItem[]; // "أجزاء الدراسة"
+  companionLabel: string; // e.g. "الاختبار يوم الخميس"
+  companionDate: string | null; // optional — only used for sorting/countdown
+}
+
+export interface EventTask extends BaseTask {
+  kind: "event";
+  dateTime: string | null;
+  location: string; // مكان أو رابط
+  attended: boolean;
+  steps: ChecklistItem[]; // optional extra steps
+}
+
+export interface RecurringTask extends BaseTask {
+  kind: "recurring";
+  dayOfWeek: number | null; // 0 = الأحد ... 6 = السبت (matches Date#getDay)
+  time: string | null; // "HH:mm"
+  recurring: boolean; // repeats weekly instead of ending
+  doneMarkedAt: string | null; // when "تم اليوم" was last checked
+}
+
+export interface OpportunityTask extends BaseTask {
+  kind: "opportunity";
+  deadline: string | null; // essential, but kept nullable for a brief invalid draft state
+  checklist: ChecklistItem[];
+}
+
+export interface ProjectTask extends BaseTask {
+  kind: "project";
+  phases: ChecklistItem[];
+  deadline: string | null;
+  deadlineRequired: boolean;
+}
+
+export interface SimpleTask extends BaseTask {
+  kind: "simple";
+  deadline: string | null;
+}
+
+export type Task =
+  | StudyTask
+  | EventTask
+  | RecurringTask
+  | OpportunityTask
+  | ProjectTask
+  | SimpleTask;
+
+type DistributiveOmit<T, K extends keyof any> = T extends any ? Omit<T, K> : never;
+
+export type NewTaskInput = DistributiveOmit<
   Task,
-  "id" | "createdAt" | "updatedAt" | "done" | "notifiedThresholds"
+  "id" | "createdAt" | "updatedAt" | "done" | "notifiedThresholds" | "notifiedForDeadline"
 >;
 
 export type ThemeMode = "light" | "dark" | "system";

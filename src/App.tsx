@@ -8,6 +8,7 @@ import MotivationModal from "./components/MotivationModal";
 import SettingsPanel from "./components/SettingsPanel";
 import { useIdle, useNow } from "./hooks";
 import { urgencyOf } from "./utils/countdown";
+import { getEffectiveDeadline } from "../shared/taskLogic";
 
 type ModalState =
   | { type: "none" }
@@ -18,7 +19,7 @@ type ModalState =
   | { type: "settings" };
 
 export default function App() {
-  const { tasks, settings, loaded, init, addTask, updateTask } = useTaskStore();
+  const { tasks, settings, loaded, init, addTask, editTask } = useTaskStore();
   const [modal, setModal] = useState<ModalState>({ type: "none" });
   const now = useNow(20_000);
   const idle = useIdle(4500);
@@ -39,11 +40,17 @@ export default function App() {
 
   const visibleTasks = useMemo(() => sortedVisibleTasks(tasks, false), [tasks]);
   const todayTasks = useMemo(
-    () => visibleTasks.filter((t) => ["overdue", "critical"].includes(urgencyOf(t.deadline, now))),
+    () =>
+      visibleTasks.filter((t) =>
+        ["overdue", "critical"].includes(urgencyOf(getEffectiveDeadline(t, new Date(now)), now))
+      ),
     [visibleTasks, now]
   );
   const upcomingTasks = useMemo(
-    () => visibleTasks.filter((t) => !["overdue", "critical"].includes(urgencyOf(t.deadline, now))),
+    () =>
+      visibleTasks.filter(
+        (t) => !["overdue", "critical"].includes(urgencyOf(getEffectiveDeadline(t, new Date(now)), now))
+      ),
     [visibleTasks, now]
   );
 
@@ -127,7 +134,7 @@ export default function App() {
           initial={activeTask}
           onCancel={() => setModal({ type: "detail", taskId: activeTask.id })}
           onSave={(input) => {
-            updateTask(activeTask.id, input);
+            editTask(activeTask.id, input);
             setModal({ type: "detail", taskId: activeTask.id });
           }}
         />

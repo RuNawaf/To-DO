@@ -534,6 +534,90 @@ body {
   transform: translateX(-16px);
 }
 
+.progress-wrap {
+  margin: 6px 0;
+}
+.progress-label {
+  font-size: 11px;
+  color: var(--fg-muted);
+  margin-bottom: 4px;
+  display: flex;
+  justify-content: space-between;
+}
+.progress-track {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--border);
+  overflow: hidden;
+}
+.progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent), #a855f7);
+  transition: width 0.25s ease;
+}
+
+.preset-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 6px;
+}
+.preset-chip {
+  font-size: 10.5px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px dashed var(--border);
+  background: transparent;
+  color: var(--fg-muted);
+  cursor: pointer;
+  font-family: inherit;
+}
+.preset-chip:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.kind-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-bottom: 10px;
+}
+.kind-tab {
+  font-size: 11px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--fg-muted);
+  cursor: pointer;
+  font-family: inherit;
+}
+.kind-tab.active {
+  border-color: var(--accent);
+  background: rgba(99, 102, 241, 0.14);
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.inline-fields {
+  display: flex;
+  gap: 8px;
+}
+.inline-fields .field {
+  flex: 1;
+}
+
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  padding: 6px 0;
+  cursor: pointer;
+}
+
 .timer-display {
   text-align: center;
   font-size: 26px;

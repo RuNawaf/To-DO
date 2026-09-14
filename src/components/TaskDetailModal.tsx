@@ -3,7 +3,11 @@ import { useTaskStore } from "../store/useTaskStore";
 import { formatCountdown, formatDeadlineDate } from "../utils/countdown";
 import { CATEGORY_META, PRIORITY_META } from "../utils/category";
 import type { Task } from "../../shared/types";
+import { WEEKDAYS_AR } from "../../shared/types";
+import { getEffectiveDeadline, getProgress, isDoneForCurrentCycle } from "../../shared/taskLogic";
 import { useNow } from "../hooks";
+import ChecklistEditor from "./ChecklistEditor";
+import ProgressBar from "./ProgressBar";
 
 interface Props {
   task: Task;
@@ -15,7 +19,9 @@ interface Props {
 
 export default function TaskDetailModal({ task, focusNote, onClose, onEdit, onOpenMotivation }: Props) {
   const now = useNow(5000);
-  const toggleSubtask = useTaskStore((s) => s.toggleSubtask);
+  const setChecklist = useTaskStore((s) => s.setChecklist);
+  const toggleAttended = useTaskStore((s) => s.toggleAttended);
+  const toggleDoneToday = useTaskStore((s) => s.toggleDoneToday);
   const addNote = useTaskStore((s) => s.addNote);
   const deleteTask = useTaskStore((s) => s.deleteTask);
   const toggleDone = useTaskStore((s) => s.toggleDone);
@@ -24,6 +30,8 @@ export default function TaskDetailModal({ task, focusNote, onClose, onEdit, onOp
 
   const category = CATEGORY_META[task.category];
   const priority = PRIORITY_META[task.priority];
+  const effectiveDeadline = getEffectiveDeadline(task, new Date(now));
+  const progress = getProgress(task);
 
   function submitNote() {
     if (!noteDraft.trim()) return;
@@ -43,39 +51,171 @@ export default function TaskDetailModal({ task, focusNote, onClose, onEdit, onOp
           <span className="chip">
             {priority.dot} {priority.label}
           </span>
+          {task.kind === "recurring" && task.recurring && <span className="chip">🔁 أسبوعي</span>}
         </div>
 
-        {task.deadline && (
+        {/* ---- study ---- */}
+        {task.kind === "study" && (
+          <>
+            {progress && (
+              <div className="field">
+                <ProgressBar
+                  percent={progress.percent}
+                  label={`${progress.done} من ${progress.total} أجزاء مكتملة — ${progress.percent}%`}
+                />
+              </div>
+            )}
+            {(task.companionLabel || effectiveDeadline) && (
+              <div className="field">
+                <label>{task.companionLabel || "الموعد المساعد"}</label>
+                {effectiveDeadline && (
+                  <div style={{ fontWeight: 700, fontSize: 13 }}>
+                    {formatCountdown(effectiveDeadline, now)}
+                  </div>
+                )}
+              </div>
+            )}
+            <div className="field">
+              <label>أجزاء الدراسة</label>
+              <ChecklistEditor
+                items={task.parts}
+                onChange={(items) => setChecklist(task.id, items)}
+                placeholder="أضف جزء..."
+              />
+            </div>
+          </>
+        )}
+
+        {/* ---- event ---- */}
+        {task.kind === "event" && (
+          <>
+            {effectiveDeadline && (
+              <div className="field">
+                <label>الوقت المتبقي</label>
+                <div style={{ fontWeight: 700, fontSize: 13 }}>{formatCountdown(effectiveDeadline, now)}</div>
+                <div style={{ fontSize: 11, color: "var(--fg-muted)", marginTop: 2 }}>
+                  {formatDeadlineDate(effectiveDeadline)}
+                </div>
+              </div>
+            )}
+            {task.location && (
+              <div className="field">
+                <label>المكان / الرابط</label>
+                <div style={{ fontSize: 12.5 }}>{task.location}</div>
+              </div>
+            )}
+            <label className="checkbox-row" onClick={() => toggleAttended(task.id)}>
+              <input type="checkbox" checked={task.attended} readOnly />
+              حضرت
+            </label>
+            {task.steps.length > 0 && (
+              <div className="field">
+                <label>خطوات إضافية</label>
+                <ChecklistEditor
+                  items={task.steps}
+                  onChange={(items) => setChecklist(task.id, items)}
+                  placeholder="أضف خطوة..."
+                />
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ---- recurring ---- */}
+        {task.kind === "recurring" && (
+          <>
+            <div className="field">
+              <label>الموعد الأسبوعي</label>
+              <div style={{ fontSize: 13, fontWeight: 700 }}>
+                {task.dayOfWeek !== null ? WEEKDAYS_AR[task.dayOfWeek] : "—"} {task.time ?? ""}
+              </div>
+              {effectiveDeadline && (
+                <div style={{ fontSize: 11, color: "var(--fg-muted)", marginTop: 2 }}>
+                  {formatCountdown(effectiveDeadline, now)}
+                </div>
+              )}
+            </div>
+            <label className="checkbox-row" onClick={() => toggleDoneToday(task.id)}>
+              <input type="checkbox" checked={isDoneForCurrentCycle(task, new Date(now))} readOnly />
+              تم اليوم
+            </label>
+          </>
+        )}
+
+        {/* ---- opportunity ---- */}
+        {task.kind === "opportunity" && (
+          <>
+            {effectiveDeadline && (
+              <div className="field">
+                <label>الوقت المتبقي</label>
+                <div style={{ fontWeight: 700, fontSize: 13 }}>{formatCountdown(effectiveDeadline, now)}</div>
+                <div style={{ fontSize: 11, color: "var(--fg-muted)", marginTop: 2 }}>
+                  {formatDeadlineDate(effectiveDeadline)}
+                </div>
+              </div>
+            )}
+            {progress && (
+              <div className="field">
+                <ProgressBar
+                  percent={progress.percent}
+                  label={`${progress.done} من ${progress.total} خطوات — ${progress.percent}%`}
+                />
+              </div>
+            )}
+            <div className="field">
+              <label>Checklist</label>
+              <ChecklistEditor
+                items={task.checklist}
+                onChange={(items) => setChecklist(task.id, items)}
+                placeholder="أضف خطوة..."
+              />
+            </div>
+          </>
+        )}
+
+        {/* ---- project ---- */}
+        {task.kind === "project" && (
+          <>
+            {progress && (
+              <div className="field">
+                <ProgressBar
+                  percent={progress.percent}
+                  label={`${progress.done} من ${progress.total} مراحل — ${progress.percent}%`}
+                />
+              </div>
+            )}
+            {effectiveDeadline && (
+              <div className="field">
+                <label>الموعد النهائي</label>
+                <div style={{ fontWeight: 700, fontSize: 13 }}>{formatCountdown(effectiveDeadline, now)}</div>
+              </div>
+            )}
+            <div className="field">
+              <label>مراحل المشروع</label>
+              <ChecklistEditor
+                items={task.phases}
+                onChange={(items) => setChecklist(task.id, items)}
+                placeholder="أضف مرحلة..."
+              />
+            </div>
+          </>
+        )}
+
+        {/* ---- simple ---- */}
+        {task.kind === "simple" && effectiveDeadline && (
           <div className="field">
             <label>الوقت المتبقي</label>
-            <div style={{ fontWeight: 700, fontSize: 13 }}>{formatCountdown(task.deadline, now)}</div>
-            <div style={{ fontSize: 11, color: "var(--fg-muted)", marginTop: 2 }}>
-              {formatDeadlineDate(task.deadline)}
-            </div>
+            <div style={{ fontWeight: 700, fontSize: 13 }}>{formatCountdown(effectiveDeadline, now)}</div>
           </div>
         )}
 
         {task.why && (
           <div className="motivation-box">
-            <div className="label">ليش لازم أسويها؟</div>
+            <div className="label">{task.kind === "opportunity" ? "ليش أبي أقدم؟" : "ليش لازم أسويها؟"}</div>
             <p className="why-text">{task.why}</p>
             <button className="btn primary" style={{ width: "100%" }} onClick={onOpenMotivation}>
               مالي خلق 😩
             </button>
-          </div>
-        )}
-
-        {task.subtasks.length > 0 && (
-          <div className="field">
-            <label>
-              الخطوات ({task.subtasks.filter((s) => s.done).length}/{task.subtasks.length})
-            </label>
-            {task.subtasks.map((s) => (
-              <div className="subtask-row" key={s.id} onClick={() => toggleSubtask(task.id, s.id)}>
-                <span style={{ cursor: "pointer" }}>{s.done ? "☑" : "☐"}</span>
-                <span className={s.done ? "subtask-done" : ""}>{s.title}</span>
-              </div>
-            ))}
           </div>
         )}
 
