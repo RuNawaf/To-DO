@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { ChecklistItem, NewTaskInput, Settings, Task } from "../../shared/types";
+import type { ChecklistItem, Idea, NewIdeaInput, NewTaskInput, Settings, Task } from "../../shared/types";
 import { DEFAULT_SETTINGS } from "../../shared/types";
 import { getEffectiveDeadline, withChecklist } from "../../shared/taskLogic";
 import { urgencyOf } from "../utils/countdown";
@@ -10,6 +10,7 @@ function uid(): string {
 
 interface TaskStoreState {
   tasks: Task[];
+  ideas: Idea[];
   settings: Settings;
   loaded: boolean;
   activeTaskId: string | null;
@@ -23,12 +24,18 @@ interface TaskStoreState {
   toggleDoneToday: (taskId: string) => void;
   addNote: (taskId: string, note: string) => void;
   snoozeTask: (taskId: string, minutes: number) => void;
+  addIdea: (input: NewIdeaInput) => void;
+  toggleIdeaDone: (id: string) => void;
   updateSettings: (patch: Partial<Settings>) => void;
   setActiveTask: (id: string | null) => void;
 }
 
 function persistTasks(tasks: Task[]) {
   window.taskWidget?.setTasks(tasks);
+}
+
+function persistIdeas(ideas: Idea[]) {
+  window.taskWidget?.setIdeas(ideas);
 }
 
 function persistSettings(settings: Settings) {
@@ -41,6 +48,7 @@ function touch(task: Task): Task {
 
 export const useTaskStore = create<TaskStoreState>((set, get) => ({
   tasks: [],
+  ideas: [],
   settings: DEFAULT_SETTINGS,
   loaded: false,
   activeTaskId: null,
@@ -51,9 +59,9 @@ export const useTaskStore = create<TaskStoreState>((set, get) => ({
       return;
     }
     const state = await window.taskWidget.getState();
-    set({ tasks: state.tasks, settings: state.settings, loaded: true });
+    set({ tasks: state.tasks, ideas: state.ideas, settings: state.settings, loaded: true });
     window.taskWidget.onStateChanged((s) => {
-      set({ tasks: s.tasks, settings: s.settings });
+      set({ tasks: s.tasks, ideas: s.ideas, settings: s.settings });
     });
   },
 
@@ -145,6 +153,22 @@ export const useTaskStore = create<TaskStoreState>((set, get) => ({
     persistTasks(tasks);
   },
 
+  addIdea: (input) => {
+    const now = new Date().toISOString();
+    const idea: Idea = { ...input, id: uid(), createdAt: now, updatedAt: now, done: false };
+    const ideas = [...get().ideas, idea];
+    set({ ideas });
+    persistIdeas(ideas);
+  },
+
+  toggleIdeaDone: (id) => {
+    const ideas = get().ideas.map((i) =>
+      i.id === id ? { ...i, done: !i.done, updatedAt: new Date().toISOString() } : i
+    );
+    set({ ideas });
+    persistIdeas(ideas);
+  },
+
   updateSettings: (patch) => {
     const settings = { ...get().settings, ...patch };
     set({ settings });
@@ -179,5 +203,15 @@ export function sortedVisibleTasks(tasks: Task[], showDone: boolean): Task[] {
     if (deadlineB) return 1;
     const priorityRank = { high: 0, medium: 1, low: 2 };
     return priorityRank[a.priority] - priorityRank[b.priority];
+  });
+}
+
+export function sortedIdeas(ideas: Idea[]): Idea[] {
+  return [...ideas].sort((a, b) => {
+    if (a.done !== b.done) return a.done ? 1 : -1;
+    if (a.time && b.time) return a.time.localeCompare(b.time);
+    if (a.time) return -1;
+    if (b.time) return 1;
+    return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
   });
 }

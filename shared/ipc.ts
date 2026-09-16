@@ -1,6 +1,7 @@
 export const IPC = {
   GET_STATE: "state:get",
   SET_TASKS: "tasks:set",
+  SET_IDEAS: "ideas:set",
   SET_SETTINGS: "settings:set",
   STATE_CHANGED: "state:changed",
   WINDOW_MINIMIZE: "window:minimize",

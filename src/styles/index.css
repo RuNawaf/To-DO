@@ -151,7 +151,45 @@ body {
   color: var(--danger);
 }
 
-.task-list {
+.sections-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.section-column {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.section-column + .section-column {
+  border-top: 1px solid var(--border);
+}
+
+@media (min-width: 560px) {
+  .sections-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .section-column + .section-column {
+    border-top: none;
+    border-inline-start: 1px solid var(--border);
+  }
+}
+
+.section-header {
+  padding: 10px 12px 2px;
+  font-size: 12.5px;
+  font-weight: 800;
+  color: var(--fg);
+  flex-shrink: 0;
+}
+
+.task-list,
+.idea-list {
   flex: 1;
   overflow-y: auto;
   padding: 8px;
@@ -265,6 +303,90 @@ body {
   white-space: nowrap;
 }
 
+.idea-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 9px 10px;
+  transition: background 0.15s ease, opacity 0.25s ease;
+}
+.idea-card:hover {
+  background: var(--card-hover);
+}
+.idea-card.done {
+  opacity: 0.55;
+}
+
+.idea-check {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  margin-top: 1px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border);
+  background: transparent;
+  color: var(--accent-fg);
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+.idea-check:hover {
+  border-color: var(--accent);
+}
+.idea-check.done {
+  background: var(--accent);
+  border-color: var(--accent);
+  animation: idea-pop 0.3s ease;
+}
+
+@keyframes idea-pop {
+  0% {
+    transform: scale(0.7);
+  }
+  60% {
+    transform: scale(1.15);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.idea-body {
+  min-width: 0;
+  flex: 1;
+}
+
+.idea-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--fg);
+}
+.idea-title.done {
+  text-decoration: line-through;
+  color: var(--fg-muted);
+}
+
+.idea-description {
+  font-size: 11.5px;
+  color: var(--fg-muted);
+  margin-top: 2px;
+  line-height: 1.5;
+}
+
+.idea-time {
+  font-size: 11px;
+  color: var(--accent);
+  margin-top: 4px;
+  font-weight: 700;
+}
+
 .empty-state {
   text-align: center;
   padding: 30px 14px;
@@ -313,6 +435,15 @@ body {
 }
 .widget.compact .task-card {
   padding: 6px 8px;
+}
+.widget.compact .sections-grid {
+  grid-template-columns: 1fr;
+}
+.widget.compact .idea-section {
+  display: none;
+}
+.widget.compact .section-header {
+  display: none;
 }
 
 /* Modal overlay */

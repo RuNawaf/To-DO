@@ -1,11 +1,13 @@
 import { contextBridge, ipcRenderer } from "electron";
 import { IPC } from "../shared/ipc";
-import type { AppState, Task, Settings } from "../shared/types";
+import type { AppState, Task, Idea, Settings } from "../shared/types";
 
 const api = {
   getState: (): Promise<AppState> => ipcRenderer.invoke(IPC.GET_STATE),
   setTasks: (tasks: Task[]): Promise<void> =>
     ipcRenderer.invoke(IPC.SET_TASKS, tasks),
+  setIdeas: (ideas: Idea[]): Promise<void> =>
+    ipcRenderer.invoke(IPC.SET_IDEAS, ideas),
   setSettings: (settings: Settings): Promise<void> =>
     ipcRenderer.invoke(IPC.SET_SETTINGS, settings),
   onStateChanged: (cb: (state: AppState) => void) => {

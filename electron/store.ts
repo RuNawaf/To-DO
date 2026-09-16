@@ -7,6 +7,7 @@ const store = new Store<AppState>({
   name: "taskwidget-data",
   defaults: {
     tasks: [],
+    ideas: [],
     settings: DEFAULT_SETTINGS,
   },
 });
@@ -24,6 +25,14 @@ export function setTasks(tasks: AppState["tasks"]) {
   store.set("tasks", tasks);
 }
 
+export function getIdeas() {
+  return store.get("ideas") ?? [];
+}
+
+export function setIdeas(ideas: AppState["ideas"]) {
+  store.set("ideas", ideas);
+}
+
 export function getSettings() {
   return { ...DEFAULT_SETTINGS, ...store.get("settings") };
 }
@@ -33,7 +42,7 @@ export function setSettings(settings: AppState["settings"]) {
 }
 
 export function getState(): AppState {
-  return { tasks: getTasks(), settings: getSettings() };
+  return { tasks: getTasks(), ideas: getIdeas(), settings: getSettings() };
 }
 
 export default store;

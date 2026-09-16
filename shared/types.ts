@@ -174,8 +174,26 @@ export const DEFAULT_SETTINGS: Settings = {
   locked: false,
 };
 
+/**
+ * A lightweight, low-commitment item — separate from Task. No categories,
+ * no deadlines-as-obligation, just "title (+ optional time/description)"
+ * for things the user may want to do someday.
+ */
+export interface Idea {
+  id: string;
+  title: string;
+  time: string | null; // "HH:mm", optional
+  description: string;
+  done: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type NewIdeaInput = Omit<Idea, "id" | "createdAt" | "updatedAt" | "done">;
+
 export interface AppState {
   tasks: Task[];
+  ideas: Idea[];
   settings: Settings;
 }
 

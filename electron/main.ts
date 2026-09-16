@@ -10,13 +10,13 @@ import {
 } from "electron";
 import path from "node:path";
 import { IPC } from "../shared/ipc";
-import { getState, getTasks, getSettings, setTasks, setSettings } from "./store";
+import { getState, getTasks, getSettings, setTasks, setIdeas, setSettings } from "./store";
 import { startNotificationScheduler } from "./notificationScheduler";
-import type { Settings, Task } from "../shared/types";
+import type { Settings, Task, Idea } from "../shared/types";
 
 const isDev = process.env.NODE_ENV === "development";
 
-const DEFAULT_WIDTH = 340;
+const DEFAULT_WIDTH = 640;
 const DEFAULT_HEIGHT = 480;
 const COMPACT_WIDTH = 300;
 const COMPACT_HEIGHT = 130;
@@ -187,6 +187,11 @@ function registerIpcHandlers() {
 
   ipcMain.handle(IPC.SET_TASKS, (_evt, tasks: Task[]) => {
     setTasks(tasks);
+    broadcastState();
+  });
+
+  ipcMain.handle(IPC.SET_IDEAS, (_evt, ideas: Idea[]) => {
+    setIdeas(ideas);
     broadcastState();
   });
 

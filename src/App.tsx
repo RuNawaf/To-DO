@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import { sortedVisibleTasks, useTaskStore } from "./store/useTaskStore";
+import { sortedIdeas, sortedVisibleTasks, useTaskStore } from "./store/useTaskStore";
 import TitleBar from "./components/TitleBar";
 import TaskCard from "./components/TaskCard";
 import TaskFormModal from "./components/TaskFormModal";
 import TaskDetailModal from "./components/TaskDetailModal";
 import MotivationModal from "./components/MotivationModal";
 import SettingsPanel from "./components/SettingsPanel";
+import IdeaCard from "./components/IdeaCard";
+import IdeaFormModal from "./components/IdeaFormModal";
 import { useIdle, useNow } from "./hooks";
 import { urgencyOf } from "./utils/countdown";
 import { getEffectiveDeadline } from "../shared/taskLogic";
@@ -16,10 +18,11 @@ type ModalState =
   | { type: "edit"; taskId: string }
   | { type: "detail"; taskId: string; focusNote?: boolean }
   | { type: "motivation"; taskId: string }
+  | { type: "addIdea" }
   | { type: "settings" };
 
 export default function App() {
-  const { tasks, settings, loaded, init, addTask, editTask } = useTaskStore();
+  const { tasks, ideas, settings, loaded, init, addTask, editTask, addIdea } = useTaskStore();
   const [modal, setModal] = useState<ModalState>({ type: "none" });
   const now = useNow(20_000);
   const idle = useIdle(4500);
@@ -54,6 +57,8 @@ export default function App() {
     [visibleTasks, now]
   );
 
+  const visibleIdeas = useMemo(() => sortedIdeas(ideas), [ideas]);
+
   const activeTask = useMemo(() => {
     if (modal.type === "detail" || modal.type === "motivation" || modal.type === "edit") {
       return tasks.find((t) => t.id === modal.taskId) ?? null;
@@ -77,46 +82,71 @@ export default function App() {
         onMinimize={() => window.taskWidget?.minimize()}
       />
 
-      <div className="task-list">
-        {visibleTasks.length === 0 && (
-          <div className="empty-state">
-            لا توجد مهام الآن 🌤️
-            <br />
-            أضف أول التزام تبغى تتابعه.
+      <div className="sections-grid">
+        <div className="section-column commitments-section">
+          <div className="section-header">الالتزامات</div>
+          <div className="task-list">
+            {visibleTasks.length === 0 && (
+              <div className="empty-state">
+                لا توجد مهام الآن 🌤️
+                <br />
+                أضف أول التزام تبغى تتابعه.
+              </div>
+            )}
+
+            {!compact && todayTasks.length > 0 && <div className="section-label">اليوم وعاجل</div>}
+            {todayTasks.map((task) => (
+              <TaskCard
+                key={task.id}
+                task={task}
+                now={now}
+                compact={compact}
+                onOpen={(id) => setModal({ type: "detail", taskId: id })}
+                onQuickNote={(id) => setModal({ type: "detail", taskId: id, focusNote: true })}
+              />
+            ))}
+
+            {!compact && upcomingTasks.length > 0 && todayTasks.length > 0 && (
+              <div className="section-label">قادم</div>
+            )}
+            {upcomingTasks.map((task) => (
+              <TaskCard
+                key={task.id}
+                task={task}
+                now={now}
+                compact={compact}
+                onOpen={(id) => setModal({ type: "detail", taskId: id })}
+                onQuickNote={(id) => setModal({ type: "detail", taskId: id, focusNote: true })}
+              />
+            ))}
           </div>
-        )}
+          <div className="add-bar">
+            <button className="add-btn" onClick={() => setModal({ type: "add" })}>
+              + إضافة مهمة
+            </button>
+          </div>
+        </div>
 
-        {!compact && todayTasks.length > 0 && <div className="section-label">اليوم وعاجل</div>}
-        {todayTasks.map((task) => (
-          <TaskCard
-            key={task.id}
-            task={task}
-            now={now}
-            compact={compact}
-            onOpen={(id) => setModal({ type: "detail", taskId: id })}
-            onQuickNote={(id) => setModal({ type: "detail", taskId: id, focusNote: true })}
-          />
-        ))}
-
-        {!compact && upcomingTasks.length > 0 && todayTasks.length > 0 && (
-          <div className="section-label">قادم</div>
-        )}
-        {upcomingTasks.map((task) => (
-          <TaskCard
-            key={task.id}
-            task={task}
-            now={now}
-            compact={compact}
-            onOpen={(id) => setModal({ type: "detail", taskId: id })}
-            onQuickNote={(id) => setModal({ type: "detail", taskId: id, focusNote: true })}
-          />
-        ))}
-      </div>
-
-      <div className="add-bar">
-        <button className="add-btn" onClick={() => setModal({ type: "add" })}>
-          + إضافة مهمة
-        </button>
+        <div className="section-column idea-section">
+          <div className="section-header">أفكار</div>
+          <div className="idea-list">
+            {visibleIdeas.length === 0 && (
+              <div className="empty-state">
+                لا أفكار محفوظة بعد 💡
+                <br />
+                دوّن أي فكرة تخطر ببالك.
+              </div>
+            )}
+            {visibleIdeas.map((idea) => (
+              <IdeaCard key={idea.id} idea={idea} />
+            ))}
+          </div>
+          <div className="add-bar">
+            <button className="add-btn" onClick={() => setModal({ type: "addIdea" })}>
+              + إضافة فكرة
+            </button>
+          </div>
+        </div>
       </div>
 
       {modal.type === "add" && (
@@ -152,6 +182,16 @@ export default function App() {
 
       {modal.type === "motivation" && activeTask && (
         <MotivationModal task={activeTask} onClose={() => setModal({ type: "detail", taskId: activeTask.id })} />
+      )}
+
+      {modal.type === "addIdea" && (
+        <IdeaFormModal
+          onCancel={() => setModal({ type: "none" })}
+          onSave={(input) => {
+            addIdea(input);
+            setModal({ type: "none" });
+          }}
+        />
       )}
 
       {modal.type === "settings" && (

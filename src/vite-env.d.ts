@@ -1,9 +1,10 @@
 /// <reference types="vite/client" />
-import type { AppState, Task, Settings } from "../shared/types";
+import type { AppState, Task, Idea, Settings } from "../shared/types";
 
 export interface TaskWidgetAPI {
   getState: () => Promise<AppState>;
   setTasks: (tasks: Task[]) => Promise<void>;
+  setIdeas: (ideas: Idea[]) => Promise<void>;
   setSettings: (settings: Settings) => Promise<void>;
   onStateChanged: (cb: (state: AppState) => void) => () => void;
   minimize: () => void;
