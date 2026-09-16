@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export function useNow(intervalMs = 30_000): number {
   const [now, setNow] = useState(Date.now());
@@ -7,6 +7,31 @@ export function useNow(intervalMs = 30_000): number {
     return () => clearInterval(id);
   }, [intervalMs]);
   return now;
+}
+
+/** First call arms a brief "confirm?" state; a second call within armMs actually runs the action. */
+export function useConfirmAction(action: () => void, armMs = 3000): [boolean, () => void] {
+  const [armed, setArmed] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, []);
+
+  function trigger() {
+    if (armed) {
+      if (timerRef.current) clearTimeout(timerRef.current);
+      setArmed(false);
+      action();
+      return;
+    }
+    setArmed(true);
+    timerRef.current = setTimeout(() => setArmed(false), armMs);
+  }
+
+  return [armed, trigger];
 }
 
 export function useIdle(idleAfterMs = 4000): boolean {

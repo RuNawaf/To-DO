@@ -8,7 +8,7 @@ interface Props {
 
 export default function IdeaFormModal({ onCancel, onSave }: Props) {
   const [title, setTitle] = useState("");
-  const [time, setTime] = useState("");
+  const [timeLocal, setTimeLocal] = useState("");
   const [description, setDescription] = useState("");
 
   const canSave = title.trim().length > 0;
@@ -17,7 +17,7 @@ export default function IdeaFormModal({ onCancel, onSave }: Props) {
     if (!canSave) return;
     onSave({
       title: title.trim(),
-      time: time || null,
+      time: timeLocal ? new Date(timeLocal).toISOString() : null,
       description: description.trim(),
     });
   }
@@ -39,8 +39,12 @@ export default function IdeaFormModal({ onCancel, onSave }: Props) {
         </div>
 
         <div className="field">
-          <label>الوقت (اختياري)</label>
-          <input type="time" value={time} onChange={(e) => setTime(e.target.value)} />
+          <label>التاريخ والوقت (اختياري)</label>
+          <input
+            type="datetime-local"
+            value={timeLocal}
+            onChange={(e) => setTimeLocal(e.target.value)}
+          />
         </div>
 
         <div className="field">

@@ -26,6 +26,7 @@ interface TaskStoreState {
   snoozeTask: (taskId: string, minutes: number) => void;
   addIdea: (input: NewIdeaInput) => void;
   toggleIdeaDone: (id: string) => void;
+  deleteIdea: (id: string) => void;
   updateSettings: (patch: Partial<Settings>) => void;
   setActiveTask: (id: string | null) => void;
 }
@@ -165,6 +166,12 @@ export const useTaskStore = create<TaskStoreState>((set, get) => ({
     const ideas = get().ideas.map((i) =>
       i.id === id ? { ...i, done: !i.done, updatedAt: new Date().toISOString() } : i
     );
+    set({ ideas });
+    persistIdeas(ideas);
+  },
+
+  deleteIdea: (id) => {
+    const ideas = get().ideas.filter((i) => i.id !== id);
     set({ ideas });
     persistIdeas(ideas);
   },

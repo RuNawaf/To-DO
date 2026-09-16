@@ -182,7 +182,7 @@ export const DEFAULT_SETTINGS: Settings = {
 export interface Idea {
   id: string;
   title: string;
-  time: string | null; // "HH:mm", optional
+  time: string | null; // ISO date+time, optional
   description: string;
   done: boolean;
   createdAt: string;

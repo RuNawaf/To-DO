@@ -44,7 +44,7 @@ export function formatCountdown(deadline: string | null, now = Date.now()): stri
 export function formatDeadlineDate(deadline: string | null): string {
   if (!deadline) return "";
   const d = new Date(deadline);
-  return d.toLocaleString("ar-SA", {
+  return d.toLocaleString("ar-SA-u-ca-gregory", {
     weekday: "short",
     day: "numeric",
     month: "short",

@@ -150,6 +150,18 @@ body {
   background: rgba(239, 68, 68, 0.15);
   color: var(--danger);
 }
+.icon-btn.danger.confirming {
+  width: auto;
+  padding: 0 8px;
+  background: var(--danger);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+}
+.icon-btn.danger.confirming:hover {
+  background: var(--danger);
+  color: #fff;
+}
 
 .sections-grid {
   flex: 1;
@@ -344,6 +356,39 @@ body {
   background: var(--accent);
   border-color: var(--accent);
   animation: idea-pop 0.3s ease;
+}
+
+.idea-delete {
+  flex-shrink: 0;
+  align-self: center;
+  border: none;
+  background: transparent;
+  color: var(--fg-muted);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 3px 6px;
+  border-radius: 8px;
+  opacity: 0;
+  transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease;
+  font-family: inherit;
+}
+.idea-card:hover .idea-delete {
+  opacity: 1;
+}
+.idea-delete:hover {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--danger);
+}
+.idea-delete.confirming {
+  opacity: 1;
+  background: var(--danger);
+  color: #fff;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.idea-delete.confirming:hover {
+  background: var(--danger);
+  color: #fff;
 }
 
 @keyframes idea-pop {

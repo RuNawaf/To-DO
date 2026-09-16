@@ -5,6 +5,7 @@ import type { Task } from "../../shared/types";
 import { WEEKDAYS_AR } from "../../shared/types";
 import { getEffectiveDeadline, getProgress, isDoneForCurrentCycle } from "../../shared/taskLogic";
 import ProgressBar from "./ProgressBar";
+import { useConfirmAction } from "../hooks";
 
 const URGENCY_COLOR: Record<Urgency, string> = {
   overdue: "#ef4444",
@@ -27,6 +28,8 @@ export default function TaskCard({ task, now, compact, onOpen, onQuickNote }: Pr
   const toggleAttended = useTaskStore((s) => s.toggleAttended);
   const toggleDoneToday = useTaskStore((s) => s.toggleDoneToday);
   const snoozeTask = useTaskStore((s) => s.snoozeTask);
+  const deleteTask = useTaskStore((s) => s.deleteTask);
+  const [confirmingDelete, triggerDelete] = useConfirmAction(() => deleteTask(task.id));
 
   const nowDate = new Date(now);
   const effectiveDeadline = getEffectiveDeadline(task, nowDate);
@@ -124,6 +127,13 @@ export default function TaskCard({ task, now, compact, onOpen, onQuickNote }: Pr
               onClick={() => onQuickNote(task.id)}
             >
               📝
+            </button>
+            <button
+              className={`icon-btn danger${confirmingDelete ? " confirming" : ""}`}
+              title={confirmingDelete ? "اضغط مرة ثانية للتأكيد" : "حذف المهمة"}
+              onClick={triggerDelete}
+            >
+              {confirmingDelete ? "تأكيد؟" : "🗑"}
             </button>
           </div>
         </>
